@@ -1,4 +1,314 @@
 #determing an expert with relevance to the board subject and candidate's area of expertise
+import PyPDF2
+
+def extract_text_from_pdf(pdf_file):
+    # Open the PDF file in read-binary mode
+    with open(pdf_file, 'rb') as file:
+        # Create a PDF reader object
+        pdf_reader = PyPDF2.PdfReader(file)
+        
+        # Initialize a variable to store the extracted text
+        text = ""
+        
+        # Iterate through all the pages and extract text
+        for page_num in range(len(pdf_reader.pages)):
+            page = pdf_reader.pages[page_num]
+            text += page.extract_text()
+    
+    return text
+
+# File name
+pdf_file = "Expert_profile1 (1).pdf"
+
+# Extract text from the PDF
+extracted_text = extract_text_from_pdf(pdf_file)
+
+# Print the extracted text
+print(extracted_text)
+
+import re
+
+def extract_features(text):
+    # Define a dictionary to store the extracted features
+    features = {
+        "Expert Name": "",
+        "Domain of Expertise": "",
+        "Educational Background": "",
+        "Research Interests": "",
+        "Publications": "",
+        "Skills and Competencies": ""
+    }
+
+    # Regular expressions for each feature, capturing multiline content
+    patterns = {
+        "Expert Name": r"Expert Name:\s*(.*?)\n(?=Domain of Expertise:|Educational Background:|Research Interests:|Publications:|Skills and Competencies:|$)",
+        "Domain of Expertise": r"Domain of Expertise:\s*(.*?)\n(?=Educational Background:|Research Interests:|Publications:|Skills and Competencies:|$)",
+        "Educational Background": r"Educational Background:\s*(.*?)\n(?=Research Interests:|Publications:|Skills and Competencies:|$)",
+        "Research Interests": r"Research Interests:\s*(.*?)\n(?=Publications:|Skills and Competencies:|$)",
+        "Publications": r"Publications:\s*(.*?)\n(?=Skills and Competencies:|$)",
+        "Skills and Competencies": r"Skills and Competencies:\s*(.*?)\s*$"
+    }
+
+    # Extract each feature using the corresponding regex pattern
+    for key, pattern in patterns.items():
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            features[key] = match.group(1).strip()
+
+    return features
+
+# Example usage
+extracted_text = """
+Expert Name: Dr. Rohan Sharma
+Domain of Expertise: Artificial Intelligence, Machine Learning, and Robotics  
+
+Educational Background:
+Ph.D. in Artificial Intelligence, Indian Institute of Technology (IIT) Bombay  
+M.Tech in Computer Science and Engineering, IIT Delhi  
+B.Tech in Electronics and Communication Engineering, National Institute of Technology (NIT) Trichy
+
+Research Interests:
+Deep Learning Architectures for Defense Applications  
+Autonomous Systems and Robotics  
+Natural Language Processing (NLP) for Intelligence Gathering
+
+Publications:
+Authored 30+ papers in reputed journals like IEEE Transactions on Neural Networks, Journal of AI  
+Research.  
+Co-authored a book on "AI in Defense Systems" published by Springer.
+
+Skills and Competencies:
+Proficient in pandas, scikit-learn, TensorFlow, PyTorch, NumPy, and spaCy
+"""
+
+# Extract features from the previously extracted text
+extracted_features = extract_features(extracted_text)
+
+# Print the extracted features
+for key, value in extracted_features.items():
+    print(f"{key}:\n{value}\n")
+
+import pandas as pd
+
+# Load the expert profile CSV file
+expert_profile_df = pd.read_csv('Expert Dataset.csv')
+
+# Extract the specified features
+extracted_features_df = expert_profile_df[['Name of the Expert', 
+                                           'Domain Expertise', 
+                                           'Educational Background', 
+                                           'Skills and Competency', 
+                                           'Research Interest']]
+
+# Rename columns to match the desired output format (optional)
+extracted_features_df.rename(columns={
+    'Name of the Expert': 'Expert Name',
+    'Domain Expertise': 'Domain Expertise',
+    'Educational Background': 'Educational Background',
+    'Skills and Competency': 'Skills and Competency',
+    'Research Interest': 'Research Interest'
+}, inplace=True)
+
+# Save the extracted features to a new CSV file
+extracted_features_df.to_csv('extracted_expert_profile.csv', index=False)
+
+print("Extraction complete. New CSV file 'extracted_expert_profile.csv' created.")
+
+
+import pandas as pd
+
+# Load the candidate profile CSV file
+expert_profile = pd.read_csv('drdo candidate dataset.csv')
+
+# Select the required columns
+selected_features = expert_profile[['Candidate Name', 'Domain Expertise', 'Educational Background', 'Skills and Competency', 'Research Interest']]
+
+# Rename columns to the desired names
+selected_features.columns = ['Candidate Name', 'Domain Expertise', 'Educational Background', 'Skills and Competency', 'Research Interest']
+
+# Save the selected features to a new CSV file
+selected_features.to_csv('extractedCandidate.csv', index=False)
+
+print("Selected features have been extracted and saved to 'extractedCandidate.csv'")
+
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Load the extracted profiles
+expert_df = pd.read_csv('extracted_expert_profile.csv')
+candidate_df = pd.read_csv('extractedCandidate.csv')
+
+# Initialize a TF-IDF Vectorizer for text features
+vectorizer = TfidfVectorizer()
+
+def calculate_similarity(expert_feature, candidate_feature):
+    # Combine both expert and candidate feature into a list
+    combined = [expert_feature, candidate_feature]
+    # Transform the text data into TF-IDF features
+    tfidf_matrix = vectorizer.fit_transform(combined)
+    # Calculate the cosine similarity between the two features
+    similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
+    return similarity[0][0] * 100  # Multiply by 100 to get a score out of 100
+
+# Initialize an empty list to store the results
+results = []
+
+# Loop over each candidate and each expert to calculate similarity
+for _, candidate_row in candidate_df.iterrows():
+    candidate_name = candidate_row['Candidate Name']
+    for _, expert_row in expert_df.iterrows():
+        expert_name = expert_row['Expert Name']
+        
+        # Calculate similarity for each feature
+        domain_similarity = calculate_similarity(expert_row['Domain Expertise'], candidate_row['Domain Expertise'])
+        education_similarity = calculate_similarity(expert_row['Educational Background'], candidate_row['Educational Background'])
+        skills_similarity = calculate_similarity(expert_row['Skills and Competency'], candidate_row['Skills and Competency'])
+        research_similarity = calculate_similarity(expert_row['Research Interest'], candidate_row['Research Interest'])
+
+        # Calculate the final similarity score
+        final_score = (domain_similarity + education_similarity + skills_similarity + research_similarity) / 4
+
+        # Append the results to the list
+        results.append([candidate_name, expert_name, final_score])
+
+# Create a DataFrame from the results
+results_df = pd.DataFrame(results, columns=['Candidate Name', 'Expert Name', 'Similarity Score'])
+
+# Save the results to a CSV file
+results_df.to_csv('candidate_expert_similarity.csv', index=False)
+
+print("Similarity scores calculated and saved to 'candidate_expert_similarity.csv'")
+
+
+import pandas as pd
+
+# Load the expert dataset
+expert_df = pd.read_csv("Expert Dataset.csv")
+
+# Extract the required features
+extracted_features = expert_df[[
+    "Name of the Expert",
+    "Domain Expertise",
+    "Skills and Competency",
+    "Previous Involvement in Interviews in %",
+    "Years of Experience",
+    "Educational Background"
+]]
+
+# Assign weights to the features
+weights = {
+    "Domain Expertise": 4,
+    "Skills and Competency": 4,
+    "Previous Involvement in Interviews in %": 3,
+    "Years of Experience": 2,
+    "Educational Background": 1
+}
+
+# You can print the extracted features to check
+print(extracted_features.head())
+
+# Save the extracted features to a new CSV file
+extracted_features.to_csv("extracted_expert_features.csv", index=False)
+
+
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+# Load the datasets
+extracted_expert_df = pd.read_csv("extracted_expert_features.csv")
+board_subject_df = pd.read_csv("Board Subject.csv")
+
+# Initialize the vectorizer for text-based similarity
+vectorizer = TfidfVectorizer()
+
+# Function to calculate similarity
+def calculate_similarity(text1, text2):
+    tfidf_matrix = vectorizer.fit_transform([text1, text2])
+    similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
+    return similarity[0][0]
+
+# Calculate matching scores
+matching_scores = []
+
+for index, expert in extracted_expert_df.iterrows():
+    for _, subject in board_subject_df.iterrows():
+        domain_similarity = calculate_similarity(expert["Domain Expertise"], subject["Subject Domain"]) * 4
+        skills_similarity = calculate_similarity(expert["Skills and Competency"], subject["Skills Required"]) * 4
+        
+        prev_involvement_score = expert["Previous Involvement in Interviews in %"] * 0.03  # Scale to match weight
+        years_experience_score = expert["Years of Experience"] * 0.02  # Scale to match weight
+        
+        educational_background_score = 1 if expert["Educational Background"].lower() in subject["Subject Domain"].lower() else 0
+        
+        # Calculate the total score and scale it by 10
+        total_score = (domain_similarity + skills_similarity + prev_involvement_score + years_experience_score + educational_background_score) * 10
+        
+        matching_scores.append({
+            "Name of the Expert": expert["Name of the Expert"],
+            "Subject Domain": subject["Subject Domain"],
+            "Matching Score": total_score
+        })
+
+# Convert matching scores to DataFrame
+matching_scores_df = pd.DataFrame(matching_scores)
+
+# Save the matching scores to a new CSV file
+matching_scores_df.to_csv("matching_scores.csv", index=False)
+
+# You can print the top matches for verification
+print(matching_scores_df.head())
+
+
+import pandas as pd
+
+# Load the datasets
+matching_scores_df = pd.read_csv("matching_scores.csv")
+candidate_expert_similarity_df = pd.read_csv("candidate_expert_similarity.csv")
+
+# Step 1: Extract the highest matching score for each Subject Domain
+highest_scores_df = matching_scores_df.loc[matching_scores_df.groupby('Subject Domain')['Matching Score'].idxmax()]
+
+# Step 2: Find the candidate with the highest profile score for each expert
+final_matches = []
+
+for index, row in highest_scores_df.iterrows():
+    expert_name    = row['Name of the Expert']
+    subject_domain = row['Subject Domain']
+    matching_score = row['Matching Score']
+
+    # Filter the candidates associated with this expert
+    candidate_scores = candidate_expert_similarity_df[candidate_expert_similarity_df['Expert Name'] == expert_name]
+
+    if not candidate_scores.empty:
+        # Find the candidate with the highest profile score
+        highest_profile_score = candidate_scores.loc[candidate_scores['Similarity Score'].idxmax()]
+        candidate_name = highest_profile_score['Candidate Name']
+        profile_score = highest_profile_score['Similarity Score']
+
+        # Step 3: Calculate the Relevancy Score
+        relevancy_score = (matching_score * 0.7) + (profile_score * 0.3)  # High weight to matching score
+
+        # Append the result to the final list
+        final_matches.append({
+            "Subject Domain": subject_domain,
+            "Name of the Expert": expert_name,
+            "Candidate Name": candidate_name,
+            "Relevancy Score": relevancy_score
+        })
+
+# Convert the results to a DataFrame
+final_matches_df = pd.DataFrame(final_matches)
+
+# Save the final matches to a new CSV file
+final_matches_df.to_csv("final_matches.csv", index=False)
+
+# Print the first few rows of the result for verification
+print(final_matches_df.head())
+
+
+
 
 
 
