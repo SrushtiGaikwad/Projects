@@ -8,10 +8,10 @@ For that we have calculated 3 three scores:
 2) Matching Score - similarity score between an expert and board subject
 3) Relevancy Score - similarity score between profile score and matching score ...(This score shows which expert should interview which interview which candidate with respect to the board subject)
 
-NLP Pipeline : Data Aquisition...(csv files)
-               Data Preprocessing...(removing puntuation, tokenization,stemming, lemmatization...and so on)
-               Feature Engineering - Simple - Domain knowledge, TF-IDF, Bag of words, N-grams...
-                                     Advance - Pos tagging, Word2vec
-               Model Training
-               Evluation
+NLP Pipeline : Data Aquisition...(csv files),
+               Data Preprocessing...(removing puntuation, tokenization,stemming, lemmatization...and so on),
+               Feature Engineering - Simple - Domain knowledge, TF-IDF, Bag of words, N-grams,
+                                     Advance - Pos tagging, Word2vec,
+               Model Training,
+               Evluation,
                Deployment
